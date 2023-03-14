@@ -18,9 +18,18 @@ contract liquorice {
         int markup; // positive means maker order, negative means taker order. Range 0 to 100 
     }
 
-    mapping(uint => order) public auctions;
+    struct auction {
+        address sender; // address that placed an order
+        int volume; // order volume in ETH
+        bool side; // 0 is BUY, 1 is SELL
+        int markup; // positive means maker order, negative means taker order. Range 0 to 100 
+        uint price; // oracle prices derived at the moment orders were matched
+        uint lockout; // timeperiod when cancelation is possible
+    }
 
     order[] public orders;
+    
+    mapping(uint => auction) public auctions;
 
     constructor() {
         console.log("Owner contract deployed by:", msg.sender);
