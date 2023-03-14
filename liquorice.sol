@@ -6,18 +6,21 @@ import "hardhat/console.sol";
 
 contract liquorice {
 
+
     address private owner;
 
     // event for EVM logging
     event OwnerSet(address indexed oldOwner, address indexed newOwner);
 
-    uint defaultFee; // fee that maker pais for canceling orders
+    uint tradeFee; // fee that taker pays to maker
+    uint cancelFee; // fee that maker pais for canceling orders
     uint defaultLockout; // lockout time which is stored in auction when orders are matched
 
     struct order {
         address sender; // address that placed an order
         uint volume; // order volume in ETH
         bool side; // 0 is BUY, 1 is SELL
+        bool TakerMaker; // 0 is taker, 1 is maker
         int markup; // positive means maker order, negative means taker order. Range 0 to 100 
     }
 
@@ -25,6 +28,7 @@ contract liquorice {
         address sender; // address that placed an order
         int volume; // order volume in ETH
         bool side; // 0 is BUY, 1 is SELL
+        bool TakerMaker; // 0 is taker, 1 is maker        
         int markup; // positive means maker order, negative means taker order. Range 0 to 100 
         uint takerfee; // reserved fee to be paid to maker when order is matched 
         uint makerreserve; // fee paid by maker if he cacnels an order. Should be a small amount 
@@ -36,18 +40,22 @@ contract liquorice {
     
     mapping(uint => auction) public auctions;
 
-    constructor() {
+    //Constructor sets 4 parameters a) owner of contract b) default fee for order cancel c) fee for taker orders d) lockout period
+    constructor(uint _tradefee, uint _cancelFee) {
         console.log("Owner contract deployed by:", msg.sender);
         owner = msg.sender; // 'msg.sender' is sender of current call, contract deployer for a constructor
         emit OwnerSet(address(0), owner);
-        defaultFee = 0.0001 ether;
+        tradeFee = _tradefee/100;
+        cancelFee = _cancelFee;
         defaultLockout = 3; 
     }
 
-    function orderplace(int _volume, bool _side, int _markup) public {
+    //Called by user
+    function orderplace(int _volume, bool _side, bool _TakerMaker, int _markup) public {
         
     }
 
+    //Called by user
     function ordercancel() public {
 
     }
