@@ -37,7 +37,6 @@ contract liquorice {
     }
 
     order[] public orders;
-    
     mapping(uint => auction) public auctions;
 
     //Constructor sets 4 parameters a) owner of contract b) default fee for order cancel c) fee for taker orders d) lockout period
@@ -57,6 +56,11 @@ contract liquorice {
 
     //Called by user
     function ordercancel() public {
+
+    }
+
+    //Not called by user, activates when orders are matched to create an auction
+    function matching() internal {
 
     }
 
