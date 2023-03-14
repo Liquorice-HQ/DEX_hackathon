@@ -41,4 +41,13 @@ contract liquorice {
         
     }
 
+    function ordercancel() public {
+
+    }
+
+    //swap function is not called by users, it activates when auction reaches lockout period
+    function swap() internal {
+
+    }
+
 }
