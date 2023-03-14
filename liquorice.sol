@@ -41,13 +41,13 @@ contract liquorice {
     mapping(uint => auction) public auctions;
 
     //Constructor sets 4 parameters a) owner of contract b) default fee for order cancel c) fee for taker orders d) lockout period
-    constructor(uint _tradefee, uint _cancelFee) {
+    constructor(uint _tradefee, uint _cancelFee, uint _defaultLockout) {
         console.log("Owner contract deployed by:", msg.sender);
         owner = msg.sender; // 'msg.sender' is sender of current call, contract deployer for a constructor
         emit OwnerSet(address(0), owner);
         tradeFee = _tradefee/100;
         cancelFee = _cancelFee;
-        defaultLockout = 3; 
+        defaultLockout = _defaultLockout; 
     }
 
     //Called by user
