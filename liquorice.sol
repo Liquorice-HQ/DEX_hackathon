@@ -9,27 +9,27 @@ contract liquorice {
 
     address private owner;
 
-    // event for EVM logging
-    event OwnerSet(address indexed oldOwner, address indexed newOwner);
-
     uint tradeFee; // fee that taker pays to maker
     uint cancelFee; // fee that maker pais for canceling orders
     uint defaultLockout; // lockout time which is stored in auction when orders are matched
+    uint id; //order counter
 
     struct order {
+        uint id; // order id
         address sender; // address that placed an order
         uint volume; // order volume in ETH
         bool side; // 0 is BUY, 1 is SELL
         bool TakerMaker; // 0 is taker, 1 is maker
-        int markup; // positive means maker order, negative means taker order. Range 0 to 100 
+        uint markup; // positive means maker order, negative means taker order. Range 0 to 100 
     }
 
     struct auction {
+        uint id; // order id
         address sender; // address that placed an order
         int volume; // order volume in ETH
         bool side; // 0 is BUY, 1 is SELL
         bool TakerMaker; // 0 is taker, 1 is maker        
-        int markup; // positive means maker order, negative means taker order. Range 0 to 100 
+        uint markup; // positive means maker order, negative means taker order. Range 0 to 100 
         uint takerfee; // reserved fee to be paid to maker when order is matched 
         uint makerreserve; // fee paid by maker if he cacnels an order. Should be a small amount 
         uint price; // oracle prices derived at the moment orders were matched
@@ -39,19 +39,33 @@ contract liquorice {
     order[] public orders;
     mapping(uint => auction) public auctions;
 
-    //Constructor sets 4 parameters a) owner of contract b) default fee for order cancel c) fee for taker orders d) lockout period
-    constructor(uint _tradefee, uint _cancelFee, uint _defaultLockout) {
+    // event for EVM logging
+    event OwnerSet(address indexed oldOwner, address indexed newOwner);
+
+    //Constructor sets 4 parameters a) owner of contract b) fee for taker orders c) lockout period
+    constructor(uint _tradefee, uint _defaultLockout) {
         console.log("Owner contract deployed by:", msg.sender);
-        owner = msg.sender; // 'msg.sender' is sender of current call, contract deployer for a constructor
+        owner = msg.sender; 
         emit OwnerSet(address(0), owner);
         tradeFee = _tradefee/100;
-        cancelFee = _cancelFee;
         defaultLockout = _defaultLockout; 
+        id = 0;
     }
 
-    //Called by user
-    function orderplace(int _volume, bool _side, bool _TakerMaker, int _markup) public {
+    //Function used to easily calculate available maker volumes when a certain taker comes in
+    function easeymaker() external returns(uint availableVolume) {
         
+    }
+
+
+    //Called by user
+    function orderplace(uint _volume, bool _side, bool _TakerMaker, uint _markup) public {
+        id++;
+        if (_TakerMaker == true) {
+            orders.push(order(id, msg.sender, _volume, _side, _TakerMaker, _markup));
+        } else {
+
+        }
     }
 
     //Called by user
@@ -59,12 +73,7 @@ contract liquorice {
 
     }
 
-    //Not called by user, activates when orders are matched to create an auction
-    function matching() internal {
-
-    }
-
-    //swap function is not called by users, it activates when auction reaches lockout period
+    //Swap function is not called by users, it activates when auction reaches lockout period
     function swap() internal {
 
     }
