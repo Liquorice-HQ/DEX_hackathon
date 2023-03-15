@@ -13,6 +13,7 @@ contract liquorice {
     uint cancelFee; // fee that maker pais for canceling orders
     uint defaultLockout; // lockout time which is stored in auction when orders are matched
     uint id; //order counter
+    int maxMarkup; //defines maximum available markup/slippage defined on the platform
 
     struct order {
         uint id; // order id
@@ -20,7 +21,7 @@ contract liquorice {
         uint volume; // order volume in ETH
         bool side; // 0 is BUY, 1 is SELL
         bool TakerMaker; // 0 is taker, 1 is maker
-        uint markup; // positive means maker order, negative means taker order. Range 0 to 100 
+        int markup; // positive means maker order, negative means taker order. Range 0 to 100 
     }
 
     struct auction {
@@ -29,20 +30,19 @@ contract liquorice {
         int volume; // order volume in ETH
         bool side; // 0 is BUY, 1 is SELL
         bool TakerMaker; // 0 is taker, 1 is maker        
-        uint markup; // positive means maker order, negative means taker order. Range 0 to 100 
+        int markup; // positive means maker order, negative means taker order. Range 0 to 100 
         uint takerfee; // reserved fee to be paid to maker when order is matched 
         uint makerreserve; // fee paid by maker if he cacnels an order. Should be a small amount 
         uint price; // oracle prices derived at the moment orders were matched
         uint lockout; // timeperiod when cancelation is possible
     }
 
-    order[] public orders;
-    mapping(uint => auction) public auctions;
+    mapping(int => order[]) public orders;
+    mapping(uint => auction[]) public auctions;
 
     // event for EVM logging
     event OwnerSet(address indexed oldOwner, address indexed newOwner);
 
-    //Constructor sets 4 parameters a) owner of contract b) fee for taker orders c) lockout period
     constructor(uint _tradefee, uint _defaultLockout) {
         console.log("Owner contract deployed by:", msg.sender);
         owner = msg.sender; 
@@ -50,19 +50,20 @@ contract liquorice {
         tradeFee = _tradefee/100;
         defaultLockout = _defaultLockout; 
         id = 0;
+        maxMarkup = 200;
     }
 
     //Function used to easily calculate available maker volumes when a certain taker comes in
-    function easeymaker() external returns(uint availableVolume) {
-        
+    function easymatch(uint _volume, uint markup) internal returns(uint availableVolume) {
+
     }
 
-
-    //Called by user
-    function orderplace(uint _volume, bool _side, bool _TakerMaker, uint _markup) public {
+    //Called by user. While orderplace is working, orddercancel should not initiate
+    function orderplace(uint _volume, bool _side, bool _TakerMaker, int _markup) public {
+        require(_markup <= maxMarkup);
         id++;
         if (_TakerMaker == true) {
-            orders.push(order(id, msg.sender, _volume, _side, _TakerMaker, _markup));
+            orders[_markup].push(order(id, msg.sender, _volume, _side, _TakerMaker, _markup));
         } else {
 
         }
