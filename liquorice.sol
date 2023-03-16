@@ -14,6 +14,7 @@ contract liquorice {
     uint defaultLockout; // lockout time which is stored in auction when orders are matched
     uint id; //order counter
     int maxMarkup; //defines maximum available markup/slippage defined on the platform
+    int minMarkup; //defines maximum available markup/slippage defined on the platform
 
     struct order {
         uint id; // order id
@@ -50,23 +51,25 @@ contract liquorice {
         tradeFee = _tradefee/100;
         defaultLockout = _defaultLockout; 
         id = 0;
+        minMarkup = 1;
         maxMarkup = 200;
     }
 
-    //Function used to easily calculate available maker volumes when a certain taker comes in
-    function easymatch(uint _volume, uint markup) internal returns(uint availableVolume) {
-
-    }
 
     //Called by user. While orderplace is working, orddercancel should not initiate
     function orderplace(uint _volume, bool _side, bool _TakerMaker, int _markup) public {
-        require(_markup <= maxMarkup);
+        require(_markup <= maxMarkup, "Invalid markup");
         id++;
         if (_TakerMaker == true) {
             orders[_markup].push(order(id, msg.sender, _volume, _side, _TakerMaker, _markup));
         } else {
-
+            matching(_volume, _markup);
         }
+    }
+
+    //Matching function
+    function matching(uint _volume, int markup) internal {
+
     }
 
     //Called by user
