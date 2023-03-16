@@ -1,2 +1,1 @@
-# DEX
-ETHGlobal DEX project
+https://liquorice.gitbook.io/docs/
