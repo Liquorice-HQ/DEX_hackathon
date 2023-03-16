@@ -12,12 +12,10 @@ contract liquorice {
     uint tradeFee; // fee that taker pays to maker
     uint cancelFee; // fee that maker pais for canceling orders
     uint defaultLockout; // lockout time which is stored in auction when orders are matched
-    uint id; //order counter
     int maxMarkup; //defines maximum available markup/slippage defined on the platform
     int minMarkup; //defines maximum available markup/slippage defined on the platform
 
     struct order {
-        uint id; // order id
         address sender; // address that placed an order
         uint volume; // order volume in ETH
         bool side; // 0 is BUY, 1 is SELL
@@ -26,7 +24,6 @@ contract liquorice {
     }
 
     struct auction {
-        uint id; // order id
         address sender; // address that placed an order
         int volume; // order volume in ETH
         bool side; // 0 is BUY, 1 is SELL
@@ -44,13 +41,13 @@ contract liquorice {
     // event for EVM logging
     event OwnerSet(address indexed oldOwner, address indexed newOwner);
 
+    // setting initial parameters at ddeploy
     constructor(uint _tradefee, uint _defaultLockout) {
         console.log("Owner contract deployed by:", msg.sender);
         owner = msg.sender; 
         emit OwnerSet(address(0), owner);
         tradeFee = _tradefee/100;
         defaultLockout = _defaultLockout; 
-        id = 0;
         minMarkup = 1;
         maxMarkup = 200;
     }
@@ -59,17 +56,27 @@ contract liquorice {
     //Called by user. While orderplace is working, orddercancel should not initiate
     function orderplace(uint _volume, bool _side, bool _TakerMaker, int _markup) public {
         require(_markup <= maxMarkup, "Invalid markup");
-        id++;
         if (_TakerMaker == true) {
-            orders[_markup].push(order(id, msg.sender, _volume, _side, _TakerMaker, _markup));
+            orders[_markup].push(order(msg.sender, _volume, _side, _TakerMaker, _markup));
         } else {
-            matching(_volume, _markup);
+            matching(_volume, _markup, _side);
         }
     }
 
     //Matching function
-    function matching(uint _volume, int markup) internal {
+    function matching(uint _volume, int markup, bool _side) internal {
+        uint sum = 0;
+        if (_side = true) {
+            for (int i = 0; i < markup+1; i++) {
+                for (uint k = 0; k < orders[i].length; k++) {
+                    sum += orders[i][k].volume;
+                }
+            }
+            require(sum <= _volume, "Not enough matching maker volume");
+            
+        } else {
 
+        }
     }
 
     //Called by user
