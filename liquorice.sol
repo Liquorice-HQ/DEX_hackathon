@@ -72,38 +72,41 @@ contract liquorice {
         uint _volumecheck;
         uint[] memory _matchedIds;
         uint _lastid;
-        (_volumecheck, _matchedIds, _lastid) = precheck(_id, markup, _side);
+        (_volumecheck, _matchedIds, _lastid) = precheck(_id, markup, _side, _volume);
         require(_volume <= _volumecheck, "Not enouhg matching volume");    
         
     }
 
     //
-    function precheck(uint _id, int markup, bool _side) internal view returns(uint checksum, uint[] memory, uint lastid) {
+    function precheck(uint _id, int markup, bool _side, uint _volume) internal view returns(uint checksum, uint[] memory matchedids, uint lastid) {
         uint sum = 0; //variable used to check if taker found enough maker volume
         uint lastMatchedID; //needed to find last matched id so that its volume can be reduced instead of being carried to auctions fully
         uint[] memory matchedIds;
         if (_side = true) {
             for (int i = 1; i <= markup; i++) {
                 for (uint k = 0; k <= orders[i].length; k++) {
-                    sum += orders[i][k].volume;
-                    matchedIds[k] = orders[i][k].id;
+                    if (sum < _volume) {
+                        sum += orders[i][k].volume;
+                        matchedIds[k] = orders[i][k].id;
+                    }
                 }
             }
             
         } else {
             for (int i = 1; i >= -markup; i--) {
                 for (uint k = 0; k <= orders[i].length; k++) {
-                    sum += orders[i][k].volume;
-                    matchedIds[k] = orders[i][k].id;
-                }
+                    if (sum < _volume) {
+                        sum += orders[i][k].volume;
+                        matchedIds[k] = orders[i][k].id;
+                    }
+                }   
             }
-        }
         lastMatchedID = matchedIds[matchedIds.length];
         delete matchedIds[matchedIds.length];
         matchedIds[matchedIds.length+1] = _id;
         return (sum, matchedIds, lastMatchedID);
+        }
     }
-
     //Called by user
     function ordercancel() external {
 
