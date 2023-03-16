@@ -37,14 +37,15 @@ contract liquorice {
         uint price; // oracle prices derived at the moment orders were matched
         uint lockout; // timeperiod when cancelation is possible
     }
-
+    
+    //The two main mappings which define order book and auctions base
     mapping(int => order[]) public orders;
     mapping(uint => auction[]) public auctions;
 
     // events for EVM logging
     event OwnerSet(address indexed oldOwner, address indexed newOwner);
 
-    // setting initial parameters at ddeploy
+    // setting initial parameters at deploy
     constructor(uint _tradefee, uint _defaultLockout) {
         console.log("Owner contract deployed by:", msg.sender);
         owner = msg.sender; 
@@ -56,7 +57,7 @@ contract liquorice {
         id=0;
     }
 
-    //Called by user. While orderplace is working, orddercancel should not initiate and vice versa
+    //Called by user. While orderplace is working, ordercancel should not initiate and vice versa
     function orderplace(uint _volume, bool _side, bool _TakerMaker, int _markup) external {
         require(_markup <= maxMarkup, "Invalid markup");
         id++; //we record each id in system sequantially
@@ -77,7 +78,7 @@ contract liquorice {
         
     }
 
-    //
+    //Does initial calculations to define what happens to taker order
     function precheck(uint _id, int markup, bool _side, uint _volume) internal view returns(uint checksum, uint[] memory matchedids, uint lastid) {
         uint sum = 0; //variable used to check if taker found enough maker volume
         uint lastMatchedID; //needed to find last matched id so that its volume can be reduced instead of being carried to auctions fully
@@ -85,7 +86,7 @@ contract liquorice {
         if (_side = true) {
             for (int i = 1; i <= markup; i++) {
                 for (uint k = 0; k <= orders[i].length; k++) {
-                    if (sum < _volume) {
+                    if (sum <= _volume) {
                         sum += orders[i][k].volume;
                         matchedIds[k] = orders[i][k].id;
                     }
@@ -95,7 +96,7 @@ contract liquorice {
         } else {
             for (int i = 1; i >= -markup; i--) {
                 for (uint k = 0; k <= orders[i].length; k++) {
-                    if (sum < _volume) {
+                    if (sum <= _volume) {
                         sum += orders[i][k].volume;
                         matchedIds[k] = orders[i][k].id;
                     }
@@ -107,6 +108,7 @@ contract liquorice {
         return (sum, matchedIds, lastMatchedID);
         }
     }
+    
     //Called by user
     function ordercancel() external {
 
