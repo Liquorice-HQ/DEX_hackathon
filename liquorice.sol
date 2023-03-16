@@ -12,10 +12,12 @@ contract liquorice {
     uint tradeFee; // fee that taker pays to maker
     uint cancelFee; // fee that maker pais for canceling orders
     uint defaultLockout; // lockout time which is stored in auction when orders are matched
+    uint id; //id counter
     int maxMarkup; //defines maximum available markup/slippage defined on the platform
     int minMarkup; //defines maximum available markup/slippage defined on the platform
 
     struct order {
+        uint id; // id of order
         address sender; // address that placed an order
         uint volume; // order volume in ETH
         bool side; // 0 is BUY, 1 is SELL
@@ -24,6 +26,7 @@ contract liquorice {
     }
 
     struct auction {
+        uint id; //id of order
         address sender; // address that placed an order
         int volume; // order volume in ETH
         bool side; // 0 is BUY, 1 is SELL
@@ -50,33 +53,50 @@ contract liquorice {
         defaultLockout = _defaultLockout; 
         minMarkup = 1;
         maxMarkup = 200;
+        id=0;
     }
 
-
     //Called by user. While orderplace is working, orddercancel should not initiate
-    function orderplace(uint _volume, bool _side, bool _TakerMaker, int _markup) public {
+    function orderplace(uint _volume, bool _side, bool _TakerMaker, int _markup) external {
         require(_markup <= maxMarkup, "Invalid markup");
+        id++; //we record each id in system sequantially
         if (_TakerMaker == true) {
-            orders[_markup].push(order(msg.sender, _volume, _side, _TakerMaker, _markup));
+            orders[_markup].push(order(id, msg.sender, _volume, _side, _TakerMaker, _markup));
         } else {
-            matching(_volume, _markup, _side);
+            matching(id, _volume, _markup, _side);
         }
     }
 
     //Matching function
-    function matching(uint _volume, int markup, bool _side) internal {
-        uint sum = 0;
+    function matching(uint _id, uint _volume, int markup, bool _side) internal {
+        uint volumecheck;
+        uint[] memory matchedIds;
+        (volumecheck, ) = precheck(_volume, markup, _side);
+        (, matchedIds) = precheck(_volume, markup, _side);
+        require(_volume <= volumecheck, "Not enouhg matching volume");    
+        
+    }
+
+    function precheck(uint _volume, int markup, bool _side) internal view returns(uint checksum, uint[] memory) {
+        uint sum = 0; //variable used to check if taker found enough maker volume
+        uint[] memory matchedIds;
         if (_side = true) {
-            for (int i = 0; i < markup+1; i++) {
-                for (uint k = 0; k < orders[i].length; k++) {
+            for (int i = 0; i <= markup; i++) {
+                for (uint k = 0; k <= orders[i].length; k++) {
                     sum += orders[i][k].volume;
+                    matchedIds[k] = orders[i][k].id;
                 }
             }
-            require(sum <= _volume, "Not enough matching maker volume");
             
         } else {
-
+            for (int i = 0; i >= -markup; i--) {
+                for (uint k = 0; k <= orders[i].length; k++) {
+                    sum += orders[i][k].volume;
+                    matchedIds[k] = orders[i][k].id;
+                }
+            }
         }
+        return (sum, matchedIds);
     }
 
     //Called by user
