@@ -41,7 +41,7 @@ contract liquorice {
     mapping(int => order[]) public orders;
     mapping(uint => auction[]) public auctions;
 
-    // event for EVM logging
+    // events for EVM logging
     event OwnerSet(address indexed oldOwner, address indexed newOwner);
 
     // setting initial parameters at ddeploy
@@ -52,11 +52,11 @@ contract liquorice {
         tradeFee = _tradefee/100;
         defaultLockout = _defaultLockout; 
         minMarkup = 1;
-        maxMarkup = 200;
+        maxMarkup = 500;
         id=0;
     }
 
-    //Called by user. While orderplace is working, orddercancel should not initiate
+    //Called by user. While orderplace is working, orddercancel should not initiate and vice versa
     function orderplace(uint _volume, bool _side, bool _TakerMaker, int _markup) external {
         require(_markup <= maxMarkup, "Invalid markup");
         id++; //we record each id in system sequantially
@@ -69,19 +69,21 @@ contract liquorice {
 
     //Matching function
     function matching(uint _id, uint _volume, int markup, bool _side) internal {
-        uint volumecheck;
-        uint[] memory matchedIds;
-        (volumecheck, ) = precheck(_volume, markup, _side);
-        (, matchedIds) = precheck(_volume, markup, _side);
-        require(_volume <= volumecheck, "Not enouhg matching volume");    
+        uint _volumecheck;
+        uint[] memory _matchedIds;
+        uint _lastid;
+        (_volumecheck, _matchedIds, _lastid) = precheck(_id, markup, _side);
+        require(_volume <= _volumecheck, "Not enouhg matching volume");    
         
     }
 
-    function precheck(uint _volume, int markup, bool _side) internal view returns(uint checksum, uint[] memory) {
+    //
+    function precheck(uint _id, int markup, bool _side) internal view returns(uint checksum, uint[] memory, uint lastid) {
         uint sum = 0; //variable used to check if taker found enough maker volume
+        uint lastMatchedID; //needed to find last matched id so that its volume can be reduced instead of being carried to auctions fully
         uint[] memory matchedIds;
         if (_side = true) {
-            for (int i = 0; i <= markup; i++) {
+            for (int i = 1; i <= markup; i++) {
                 for (uint k = 0; k <= orders[i].length; k++) {
                     sum += orders[i][k].volume;
                     matchedIds[k] = orders[i][k].id;
@@ -89,18 +91,21 @@ contract liquorice {
             }
             
         } else {
-            for (int i = 0; i >= -markup; i--) {
+            for (int i = 1; i >= -markup; i--) {
                 for (uint k = 0; k <= orders[i].length; k++) {
                     sum += orders[i][k].volume;
                     matchedIds[k] = orders[i][k].id;
                 }
             }
         }
-        return (sum, matchedIds);
+        lastMatchedID = matchedIds[matchedIds.length];
+        delete matchedIds[matchedIds.length];
+        matchedIds[matchedIds.length+1] = _id;
+        return (sum, matchedIds, lastMatchedID);
     }
 
     //Called by user
-    function ordercancel() public {
+    function ordercancel() external {
 
     }
 
