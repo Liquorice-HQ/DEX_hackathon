@@ -13,6 +13,7 @@ contract liquorice {
     uint cancelFee; // fee that maker pais for canceling orders
     uint defaultLockout; // lockout time which is stored in auction when orders are matched
     uint id; //id counter
+    uint aucctionID; //Auction unqiue ID
     int maxMarkup; //defines maximum available markup/slippage defined on the platform
     int minMarkup; //defines maximum available markup/slippage defined on the platform
 
@@ -37,15 +38,14 @@ contract liquorice {
         uint price; // oracle prices derived at the moment orders were matched
         uint lockout; // timeperiod when cancelation is possible
     }
-    
-    //The two main mappings which define order book and auctions base
-    mapping(int => order[]) public orders;
-    mapping(uint => auction[]) public auctions;
+
+    mapping(int => order[]) public orders; //orders are mapped to associated "markup" value. Example, if two makers place orders with markup 20bp, all orders are mapped to key value 20
+    mapping(uint => auction[]) public auctions; //selection of orders in auction is mapped to associated auction id 
 
     // events for EVM logging
     event OwnerSet(address indexed oldOwner, address indexed newOwner);
 
-    // setting initial parameters at deploy
+    // setting initial parameters at ddeploy
     constructor(uint _tradefee, uint _defaultLockout) {
         console.log("Owner contract deployed by:", msg.sender);
         owner = msg.sender; 
@@ -55,9 +55,10 @@ contract liquorice {
         minMarkup = 1;
         maxMarkup = 500;
         id=0;
+        aucctionID=0;
     }
 
-    //Called by user. While orderplace is working, ordercancel should not initiate and vice versa
+    //Called by user. While orderplace is working, orddercancel should not initiate and vice versa
     function orderplace(uint _volume, bool _side, bool _TakerMaker, int _markup) external {
         require(_markup <= maxMarkup, "Invalid markup");
         id++; //we record each id in system sequantially
@@ -78,7 +79,7 @@ contract liquorice {
         
     }
 
-    //Does initial calculations to define what happens to taker order
+    //Does initial calculations to ddefine what happens to taker order
     function precheck(uint _id, int markup, bool _side, uint _volume) internal view returns(uint checksum, uint[] memory matchedids, uint lastid) {
         uint sum = 0; //variable used to check if taker found enough maker volume
         uint lastMatchedID; //needed to find last matched id so that its volume can be reduced instead of being carried to auctions fully
@@ -89,6 +90,7 @@ contract liquorice {
                     if (sum <= _volume) {
                         sum += orders[i][k].volume;
                         matchedIds[k] = orders[i][k].id;
+                        break;
                     }
                 }
             }
@@ -99,6 +101,7 @@ contract liquorice {
                     if (sum <= _volume) {
                         sum += orders[i][k].volume;
                         matchedIds[k] = orders[i][k].id;
+                        break;
                     }
                 }   
             }
@@ -108,10 +111,20 @@ contract liquorice {
         return (sum, matchedIds, lastMatchedID);
         }
     }
-    
-    //Called by user
-    function ordercancel() external {
 
+    //Called by maker to remove trader from order book. _key means "markup" value to easily find trade 
+    function ordercancel(int _key, uint _id) external {
+        for (uint i = 0; i < orders[_key].length; i++) {
+            if (orders[_key][i].id == _id) {
+                delete orders[_key][i];
+            }
+        }
+    }
+
+    //Called by maker to remove order from auction book
+    function auctioncancel(uint _auctionID) external {
+        require(auctions[_auctionID][0].lockout > block.timestamp, "Lockout period passed");
+        delete auctions[_auctionID];
     }
 
     //Swap function is not called by users, it activates when auction reaches lockout period
