@@ -5,7 +5,7 @@ https://liquorice.gitbook.io/docs/
 The key goal of the project is to provide an onchain MEV-aware trading space with the implementation of brokerage type of execution in DEFI. The approach differs from existing AMM pools and onchain/offchain orderbooks. 
 
 Core audience:
--Traders in DEFI who want to be able to swap coins onchain with the usage of cryptocurrency wallets such as metamask 
+-Traders in DEFI who want to be able to swap coins onchain with the usage of cryptocurrency wallets such as metamask. A special interest may come from liquidators or other participants who want to execute big volume automatically and instantly without waiting for a good OTC trade.  
 -Makert makers. Especially those who have high vip tiers on centralized exchnages such as binance. Protocol is largely designed to give an easy way for CEXs market makers to price DEFI users
 -Liquidity providers who want to supply liquidity to market makers and earn a fee in return
 
