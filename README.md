@@ -23,3 +23,6 @@ There are three key ideas in the project:
 ![image](https://user-images.githubusercontent.com/105652074/225652434-6c00afdd-9004-4bc5-9705-838d6176159b.png)
 
 3) Onchain protocol. We ensure that all trades are filled in accordance with onchain data. In current implementation we are using an oracle. But all makers are safe from oracle price manipulation thanks to auction system itself. Oracle price is first pushed onchain and makers can decide on canceling the trade in accordance with onchain data. Takers may avoid oracle manipulation risk by providing maximum price at which they are ready to swap. Oracle mechanism also helps with gas costs and speed as makers issue a "commitment" instead of constantly replacing limit orders according to market price change. 
+
+![image](https://user-images.githubusercontent.com/105652074/225848383-90a5dc65-d318-43e8-8cff-96988b483c6d.png)
+
