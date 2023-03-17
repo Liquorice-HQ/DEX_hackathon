@@ -112,7 +112,7 @@ contract liquorice {
         }
     }
 
-    //Called by maker to remove trader from order book. _key means "markup" value to easily find trade 
+    //Called by maker to remove trade from order book. _key means "markup" value to easily find trade in storage
     function ordercancel(int _key, uint _id) external {
         for (uint i = 0; i < orders[_key].length; i++) {
             if (orders[_key][i].id == _id) {
