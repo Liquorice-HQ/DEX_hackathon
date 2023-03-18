@@ -3,6 +3,7 @@
 pragma solidity ^0.8.0;
 
 import "hardhat/console.sol";
+import "https://github.com/OpenZeppelin/openzeppelin-contracts/blob/release-v4.5/contracts/token/ERC20/IERC20.sol";
 
 contract liquorice {
 
@@ -29,7 +30,7 @@ contract liquorice {
     struct auction {
         uint id; //id of order
         address sender; // address that placed an order
-        int volume; // order volume in ETH
+        uint volume; // order volume in ETH
         bool side; // 0 is BUY, 1 is SELL
         bool TakerMaker; // 0 is taker, 1 is maker        
         int markup; // positive means maker order, negative means taker order. Range 0 to 100 
@@ -41,6 +42,9 @@ contract liquorice {
 
     mapping(int => order[]) public orders; //orders are mapped to associated "markup" value. Example, if two makers place orders with markup 20bp, all orders are mapped to key value 20
     mapping(uint => auction[]) public auctions; //selection of orders in auction is mapped to associated auction id 
+
+
+    address public constant usdtAddress = 0xdAC17F958D2ee523a2206206994597C13D831ec7; //pushing in USDT address. As mvp we allow to only swap eth againsy USDT
 
     // events for EVM logging
     event OwnerSet(address indexed oldOwner, address indexed newOwner);
@@ -79,7 +83,7 @@ contract liquorice {
         
     }
 
-    //Does initial calculations to ddefine what happens to taker order
+    //Does initial calculations to define what happens to taker order
     function precheck(uint _id, int markup, bool _side, uint _volume) internal view returns(uint checksum, uint[] memory matchedids, uint lastid) {
         uint sum = 0; //variable used to check if taker found enough maker volume
         uint lastMatchedID; //needed to find last matched id so that its volume can be reduced instead of being carried to auctions fully
@@ -112,7 +116,7 @@ contract liquorice {
         }
     }
 
-    //Called by maker to remove trade from order book. _key means "markup" value to easily find trade in storage
+    //Called by maker to remove trader from order book. _key means "markup" value to easily find trade 
     function ordercancel(int _key, uint _id) external {
         for (uint i = 0; i < orders[_key].length; i++) {
             if (orders[_key][i].id == _id) {
@@ -127,9 +131,21 @@ contract liquorice {
         delete auctions[_auctionID];
     }
 
-    //Swap function is not called by users, it activates when auction reaches lockout period
-    function swap() internal {
-
+    //Ideally this function needs to be activated automatically. But in first iteration we can use make it as a manual activation by auction participants
+    function claim(uint _auctionID) external payable {
+        require(auctions[_auctionID][0].lockout < block.timestamp, "Auction is still ongoing");
+        IERC20 usdt = IERC20(usdtAddress);
+        for (uint i = 0; i <= auctions[_auctionID].length; i++) {
+            if (auctions[_auctionID][i].TakerMaker = false) {
+                address payer = auctions[_auctionID][i].sender;
+                uint takerAmount = auctions[_auctionID][i].volume;
+                if (auctions[_auctionID][i].side = false){
+                    uint takerAmount = auctions[_auctionID][i].price * takerAmount;
+                    require(usdt.balanceOf(address(payer)) >= takerAmount, "Insufficient USDT balance in contract");
+                } else {
+                    require(payer.balance >= takerAmount, "Insufficient ETH balance in contract");
+                }
+            }
+        }
     }
-
 }
