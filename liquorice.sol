@@ -135,16 +135,35 @@ contract liquorice {
     function claim(uint _auctionID) external payable {
         require(auctions[_auctionID][0].lockout < block.timestamp, "Auction is still ongoing");
         IERC20 usdt = IERC20(usdtAddress);
+        address takerAdr;
+
         for (uint i = 0; i <= auctions[_auctionID].length; i++) {
             if (auctions[_auctionID][i].TakerMaker = false) {
-                address payer = auctions[_auctionID][i].sender;
+                address takerAdr = auctions[_auctionID][i].sender;
                 uint takerAmount = auctions[_auctionID][i].volume;
                 if (auctions[_auctionID][i].side = false){
                     uint takerAmount = auctions[_auctionID][i].price * takerAmount;
-                    require(usdt.balanceOf(address(payer)) >= takerAmount, "Insufficient USDT balance in contract");
+                    require(usdt.balanceOf(address(takerAdr)) >= takerAmount, "Insufficient USDT balance in contract");
                 } else {
-                    require(payer.balance >= takerAmount, "Insufficient ETH balance in contract");
+                    require(takerAdr.balance >= takerAmount, "Insufficient ETH balance in contract");
                 }
+            }
+        }
+
+        for (uint i = 0; i <= auctions[_auctionID].length; i++) {
+            if (auctions[_auctionID][i].TakerMaker = true) {
+                address makerAdr = auctions[_auctionID][i].sender;
+                uint makerAmount = auctions[_auctionID][i].volume;
+                if (auctions[_auctionID][i].side = false){
+                    uint makerAmount = auctions[_auctionID][i].price * makerAmount;
+                    require(usdt.balanceOf(address(makerAdr)) >= makerAmount, "Insufficient USDT balance in contract");
+                    //Do actual swap
+                } else {
+                    require(makerAdr.balance >= makerAmount, "Insufficient ETH balance in contract");
+                    IERC20(usdt).transferFrom(takerAdr, makerAdr, makerAmount);
+                    //Do actual swap
+                }
+
             }
         }
     }
