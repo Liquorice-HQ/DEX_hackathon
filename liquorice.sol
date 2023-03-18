@@ -14,12 +14,11 @@ contract liquorice {
     uint cancelFee; // fee that maker pais for canceling orders
     uint defaultLockout; // lockout time which is stored in auction when orders are matched
     uint id; //id counter
-    uint aucctionID; //Auction unqiue ID
+    uint auctionID; //Auction unqiue ID
     int maxMarkup; //defines maximum available markup/slippage defined on the platform
     int minMarkup; //defines maximum available markup/slippage defined on the platform
 
     struct order {
-        uint id; // id of order
         address sender; // address that placed an order
         uint volume; // order volume in ETH
         bool side; // 0 is BUY, 1 is SELL
@@ -28,7 +27,6 @@ contract liquorice {
     }
 
     struct auction {
-        uint id; //id of order
         address sender; // address that placed an order
         uint volume; // order volume in ETH
         bool side; // 0 is BUY, 1 is SELL
@@ -40,11 +38,12 @@ contract liquorice {
         uint lockout; // timeperiod when cancelation is possible
     }
 
-    mapping(int => order[]) public orders; //orders are mapped to associated "markup" value. Example, if two makers place orders with markup 20bp, all orders are mapped to key value 20
-    mapping(uint => auction[]) public auctions; //selection of orders in auction is mapped to associated auction id 
+    mapping(int => mapping(uint => order)) public orders; //orders are mapped to associated "markup" value and order id. Example, if two makers place orders with markup 20bp, all orders are mapped to key value 20
+    mapping(uint => mapping(uint => auction)) public auctions; //selection of orders in auction is mapped to associated auction ID
 
 
-    address public constant usdtAddress = 0xdAC17F958D2ee523a2206206994597C13D831ec7; //pushing in USDT address. As mvp we allow to only swap eth againsy USDT
+    address public constant usdtAddress = 0xdAC17F958D2ee523a2206206994597C13D831ec7; //pushing in USDT address. As mvp we allow to only swap UNI against USDT
+    address public constant uniAddress = 0xBf5140A22578168FD562DCcF235E5D43A02ce9B1;  //pushing in UNI address. As mvp we allow to only swap UNI against USDT
 
     // events for EVM logging
     event OwnerSet(address indexed oldOwner, address indexed newOwner);
@@ -59,7 +58,7 @@ contract liquorice {
         minMarkup = 1;
         maxMarkup = 500;
         id=0;
-        aucctionID=0;
+        auctionID=0;
     }
 
     //Called by user. While orderplace is working, orddercancel should not initiate and vice versa
@@ -67,20 +66,10 @@ contract liquorice {
         require(_markup <= maxMarkup, "Invalid markup");
         id++; //we record each id in system sequantially
         if (_TakerMaker == true) {
-            orders[_markup].push(order(id, msg.sender, _volume, _side, _TakerMaker, _markup));
+            orders[_markup][id] = order(msg.sender, _volume, _side, _TakerMaker, _markup);
         } else {
             matching(id, _volume, _markup, _side);
         }
-    }
-
-    //Matching function
-    function matching(uint _id, uint _volume, int markup, bool _side) internal {
-        uint _volumecheck;
-        uint[] memory _matchedIds;
-        uint _lastid;
-        (_volumecheck, _matchedIds, _lastid) = precheck(_id, markup, _side, _volume);
-        require(_volume <= _volumecheck, "Not enouhg matching volume");    
-        
     }
 
     //Does initial calculations to define what happens to taker order
@@ -88,9 +77,10 @@ contract liquorice {
         uint sum = 0; //variable used to check if taker found enough maker volume
         uint lastMatchedID; //needed to find last matched id so that its volume can be reduced instead of being carried to auctions fully
         uint[] memory matchedIds;
+        auction[] memory auctionInsert;
         if (_side = true) {
             for (int i = 1; i <= markup; i++) {
-                for (uint k = 0; k <= orders[i].length; k++) {
+                for (uint k = 0; k <= _id; k++) {
                     if (sum <= _volume) {
                         sum += orders[i][k].volume;
                         matchedIds[k] = orders[i][k].id;
@@ -101,7 +91,7 @@ contract liquorice {
             
         } else {
             for (int i = 1; i >= -markup; i--) {
-                for (uint k = 0; k <= orders[i].length; k++) {
+                for (uint k = 0; k <= _id; k++) {
                     if (sum <= _volume) {
                         sum += orders[i][k].volume;
                         matchedIds[k] = orders[i][k].id;
@@ -116,54 +106,72 @@ contract liquorice {
         }
     }
 
-    //Called by maker to remove trader from order book. _key means "markup" value to easily find trade 
-    function ordercancel(int _key, uint _id) external {
-        for (uint i = 0; i < orders[_key].length; i++) {
-            if (orders[_key][i].id == _id) {
-                delete orders[_key][i];
+    //Matching function. Transfers orders from 
+    function matching(uint _takerID, uint _volume, int markup, bool _side) internal {
+        uint _volumecheck;
+        uint[] memory _matchedIds;
+        uint _lastid;
+        (_volumecheck, _matchedIds, _lastid) = precheck(_takerID, markup, _side, _volume);
+        require(_volume <= _volumecheck, "Not enough matching volume");    
+        for (int i = -200; i <= markup; i++) {
+            for (uint k = 0; k <= orders[i].length; k++) {
+                if (orders[i][k].id == _takerID){
+
+                }    
             }
         }
     }
 
+
+
+    //Called by maker to remove trader from order book. _key means "markup" value to easily find trade 
+    function ordercancel(int _key, uint _id) external {
+        delete orders[_key][_id];
+    }
+
     //Called by maker to remove order from auction book
-    function auctioncancel(uint _auctionID) external {
-        require(auctions[_auctionID][0].lockout > block.timestamp, "Lockout period passed");
-        delete auctions[_auctionID];
+    function auctioncancel(uint _auctionID, uint _id) external {
+        require(auctions[_auctionID][_id].lockout > block.timestamp, "Lockout period passed");
+        delete auctions[_auctionID][_id];
     }
 
     //Ideally this function needs to be activated automatically. But in first iteration we can use make it as a manual activation by auction participants
     function claim(uint _auctionID) external payable {
         require(auctions[_auctionID][0].lockout < block.timestamp, "Auction is still ongoing");
         IERC20 usdt = IERC20(usdtAddress);
+        IERC20 uni = IERC20(uniAddress);
         address takerAdr;
+        address makerAdr;
+        uint takerAmount;
+        uint makerAmount;
 
         for (uint i = 0; i <= auctions[_auctionID].length; i++) {
             if (auctions[_auctionID][i].TakerMaker = false) {
-                address takerAdr = auctions[_auctionID][i].sender;
-                uint takerAmount = auctions[_auctionID][i].volume;
+                takerAdr = auctions[_auctionID][i].sender;
+                takerAmount = auctions[_auctionID][i].volume;
                 if (auctions[_auctionID][i].side = false){
-                    uint takerAmount = auctions[_auctionID][i].price * takerAmount;
+                    takerAmount = auctions[_auctionID][i].price * takerAmount;
                     require(usdt.balanceOf(address(takerAdr)) >= takerAmount, "Insufficient USDT balance in contract");
                 } else {
-                    require(takerAdr.balance >= takerAmount, "Insufficient ETH balance in contract");
+                    require(uni.balanceOf(address(takerAdr)) >= takerAmount, "Insufficient UNI balance in contract");
                 }
             }
         }
 
         for (uint i = 0; i <= auctions[_auctionID].length; i++) {
             if (auctions[_auctionID][i].TakerMaker = true) {
-                address makerAdr = auctions[_auctionID][i].sender;
-                uint makerAmount = auctions[_auctionID][i].volume;
+                makerAdr = auctions[_auctionID][i].sender;
+                makerAmount = auctions[_auctionID][i].volume;
                 if (auctions[_auctionID][i].side = false){
-                    uint makerAmount = auctions[_auctionID][i].price * makerAmount;
-                    require(usdt.balanceOf(address(makerAdr)) >= makerAmount, "Insufficient USDT balance in contract");
-                    //Do actual swap
+                    makerAmount = auctions[_auctionID][i].price * makerAmount;
+                    require(usdt.balanceOf(address(makerAdr)) >= makerAmount, "Insufficient USDT balance");
+                    IERC20(usdt).transferFrom(makerAdr, takerAdr, makerAmount);
+                    IERC20(uni).transferFrom(takerAdr, makerAdr, takerAmount);
                 } else {
-                    require(makerAdr.balance >= makerAmount, "Insufficient ETH balance in contract");
-                    IERC20(usdt).transferFrom(takerAdr, makerAdr, makerAmount);
-                    //Do actual swap
+                    require(uni.balanceOf(address(makerAdr)) >= makerAmount, "Insufficient UNI balance");
+                    IERC20(uni).transferFrom(makerAdr, takerAdr, makerAmount);
+                    IERC20(usdt).transferFrom(takerAdr, makerAdr, takerAmount);
                 }
-
             }
         }
     }
