@@ -51,6 +51,8 @@ contract liquorice {
 
     // events for EVM logging
     event OwnerSet(address indexed oldOwner, address indexed newOwner);
+    event OrderBookChanged(uint when);
+    event AuctionBookChanged(uint when);
 
     // setting initial parameters at ddeploy
     constructor() {
@@ -72,7 +74,10 @@ contract liquorice {
             require(msg.value >= _volume, "not enough eth to place maker order"); 
             ethBalances[msg.sender] += msg.value;
             id++; //we record each id in system sequantially
-            orders[_markup][id] = order(msg.sender, _volume, _TakerMaker, _markup);  
+            orders[_markup][id] = order(msg.sender, _volume, _TakerMaker, _markup); 
+
+            emit OrderBookChanged(block.timestamp);
+            emit AuctionBookChanged(block.timestamp);
         } else {
             id++; //we record each id in system sequantially
             uint _volumecheck;
@@ -88,6 +93,9 @@ contract liquorice {
             order storage myStruct = orders[_makerMarkup][_makerID];
             myStruct.volume = _volumecheck - _volume;
             orders[_makerMarkup][_makerID] = myStruct;
+
+            emit OrderBookChanged(block.timestamp);
+            emit AuctionBookChanged(block.timestamp);
         }
     }
 
@@ -118,6 +126,8 @@ contract liquorice {
         payable(msg.sender).transfer(orders[_key][_id].volume);
         ethBalances[msg.sender] -= orders[_key][_id].volume;
         delete orders[_key][_id];
+
+        emit OrderBookChanged(block.timestamp);
     }
 
     //Called by maker to remove order from auction book
@@ -127,6 +137,8 @@ contract liquorice {
         ethBalances[msg.sender] -= auctions[_auctionID][0].volume;
         payable(msg.sender).transfer(auctions[_auctionID][0].volume);
         delete auctions[_auctionID];
+
+        emit AuctionBookChanged(block.timestamp);
     }
 
     //Ideally this function needs to be activated automatically. But in first iteration we can use make it as a manual activation by auction participants
@@ -136,6 +148,8 @@ contract liquorice {
         dai.transferFrom(msg.sender, address(auctions[_auctionID][1].sender), auctions[_auctionID][1].volume*auctions[_auctionID][1].price);
         payable(msg.sender).transfer(auctions[_auctionID][0].volume);
         ethBalances[auctions[_auctionID][1].sender] -= auctions[_auctionID][0].volume;
+
+        emit AuctionBookChanged(block.timestamp);
     }
 
     function viewOrder(int _key, uint256 _id) public view returns (order memory) {
