@@ -14,7 +14,7 @@ Core audience:
 
 For "scaling ethereum 2023" hackaton we are developing a demo MVP version of the product which can only do the following:
 
--Only one tradable pair ETH/USDC
+-Only one tradable pair ETH/DAI
 
 -Makers can set "commitments" to sell ETH against USDC but they can not buy. So users or ptotocl can only buy ETH from mkaers against USDC but not Sell
 
