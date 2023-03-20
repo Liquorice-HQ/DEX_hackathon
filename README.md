@@ -12,6 +12,12 @@ Core audience:
 
 -Liquidity providers who want to supply liquidity to market makers and earn a fee in return
 
+For "scaling ethereum 2023" hackaton we are developing a demo MVP version of the product which can only do the following:
+
+-Only one tradable pair ETH/USDC
+-Makers can set "commitments" to sell ETH against USDC but they can not buy. So users or ptotocl can only buy ETH from mkaers against USDC but not Sell
+-Orders are matched only with the best maker. In prod of course system should check the whole order book
+
 There are three key ideas in the project: 
 
 1) Auction based system. Market makers first get to see the matched trades so that they have an opportunity to cancel those which they see as toxic (latency trades, sandwich attacks etc). Makers can basically wait a bit to see where the market is to make sure that they can execute in profit and only then approve. There is an economic system in place to prevent makers from abusing auction system and we are looking to use account abstraction for this purpose. 
@@ -25,4 +31,3 @@ There are three key ideas in the project:
 3) Onchain protocol. We ensure that all trades are filled in accordance with onchain data. In current implementation we are using an oracle. But all makers are safe from oracle price manipulation thanks to auction system itself. Oracle price is first pushed onchain and makers can decide on canceling the trade in accordance with onchain data. Takers may avoid oracle manipulation risk by providing maximum price at which they are ready to swap. Oracle mechanism also helps with gas costs and speed as makers issue a "commitment" instead of constantly replacing limit orders according to market price change. 
 
 ![image](https://user-images.githubusercontent.com/105652074/225848383-90a5dc65-d318-43e8-8cff-96988b483c6d.png)
-
