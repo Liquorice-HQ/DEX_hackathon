@@ -71,8 +71,8 @@ contract liquorice {
     function orderplace(uint _volume,  bool _TakerMaker, int _markup) public payable {
         require(_markup <= maxMarkup, "Invalid markup");
         if (_TakerMaker == true) {
-            require(msg.value >= _volume, "not enough eth to place maker order"); 
-            ethBalances[msg.sender] += msg.value;
+            require(msg.value >= _volume*1e18, "not enough eth to place maker order"); 
+            ethBalances[msg.sender] += msg.value*1e18;
             id++; //we record each id in system sequantially
             orders[_markup][id] = order(msg.sender, _volume, _TakerMaker, _markup); 
 
@@ -87,7 +87,6 @@ contract liquorice {
             (_volumecheck, _makerID, _makerMarkup) = precheck(_markup, _volume);
             require(_volume <= _volumecheck, "Not enough matching volume");   
             auctionID++;
-            require(address(msg.sender).balance > msg.value, "Not enough funds" );
             auctions[auctionID].push(auction(id, msg.sender, _volume, false, _makerMarkup, _price, defaultLockout));
             auctions[auctionID].push(auction(_makerID, orders[_makerMarkup][_makerID].sender, _volume, true, _makerMarkup, _price, defaultLockout));
             order storage myStruct = orders[_makerMarkup][_makerID];
@@ -123,8 +122,8 @@ contract liquorice {
     //Called by maker to remove trader from order book. _key means "markup" value to easily find trade 
     function ordercancel(int _key, uint _id) external {
         require(address(msg.sender) == address(orders[_key][_id].sender), "you can not cancel this order");
-        payable(msg.sender).transfer(orders[_key][_id].volume);
-        ethBalances[msg.sender] -= orders[_key][_id].volume;
+        payable(msg.sender).transfer(orders[_key][_id].volume*1e18);
+        ethBalances[msg.sender] -= orders[_key][_id].volume*1e18;
         delete orders[_key][_id];
 
         emit OrderBookChanged(block.timestamp);
@@ -134,8 +133,8 @@ contract liquorice {
     function auctioncancel(uint _auctionID) external {
         require(address(msg.sender) == address(auctions[_auctionID][1].sender), "you can not cancel this order");
         require(auctions[_auctionID][0].lockout > block.timestamp, "Lockout period passed");
-        ethBalances[msg.sender] -= auctions[_auctionID][0].volume;
-        payable(msg.sender).transfer(auctions[_auctionID][0].volume);
+        ethBalances[msg.sender] -= auctions[_auctionID][0].volume*1e18;
+        payable(msg.sender).transfer(auctions[_auctionID][0].volume*1e18);
         delete auctions[_auctionID];
 
         emit AuctionBookChanged(block.timestamp);
@@ -146,8 +145,8 @@ contract liquorice {
         require(auctions[_auctionID][0].lockout < block.timestamp, "Auction is still ongoing");
         require(auctions[_auctionID][0].sender == msg.sender, "You can not cancel this auction");
         dai.transferFrom(msg.sender, address(auctions[_auctionID][1].sender), auctions[_auctionID][1].volume*auctions[_auctionID][1].price);
-        payable(msg.sender).transfer(auctions[_auctionID][0].volume);
-        ethBalances[auctions[_auctionID][1].sender] -= auctions[_auctionID][0].volume;
+        payable(msg.sender).transfer(auctions[_auctionID][0].volume*1e18);
+        ethBalances[auctions[_auctionID][1].sender] -= auctions[_auctionID][0].volume*1e18;
 
         emit AuctionBookChanged(block.timestamp);
     }
@@ -160,4 +159,5 @@ contract liquorice {
         return auctions[_key];
     }
 }
+
 
