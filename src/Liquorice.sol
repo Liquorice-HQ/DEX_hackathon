@@ -1,9 +1,12 @@
-// SPDX-License-Identifier: MIT
-pragma solidity 0.8.8;
+// SPDX-License-Identifier: GPL-3.0
 
-import {IERC20} from "openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
+pragma solidity ^0.8.0;
 
-contract Liquorice {
+import "hardhat/console.sol";
+import "https://github.com/OpenZeppelin/openzeppelin-contracts/blob/release-v4.5/contracts/token/ERC20/IERC20.sol";
+
+contract liquorice {
+
 
     address private owner;
 
@@ -34,7 +37,7 @@ contract Liquorice {
         uint lockout; // timeperiod when cancelation is possible
     }
 
-    auction[] public tempAuction;
+    auction[] public tempAuction; //used to assist with forming an auction
 
     mapping(int => mapping(uint => order)) public orders; //orders are mapped to associated "markup" value and order id. Example, if two makers place orders with markup 20bp, all orders are mapped to key value 20
     mapping(uint => auction[]) public auctions; //selection of orders in auction is mapped to associated auction ID
@@ -47,10 +50,10 @@ contract Liquorice {
     event OwnerSet(address indexed oldOwner, address indexed newOwner);
 
     // setting initial parameters at ddeploy
-    constructor(uint _tradefee, uint _defaultLockout) {
+    constructor(uint _defaultLockout) {
+        console.log("Owner contract deployed by:", msg.sender);
         owner = msg.sender; 
         emit OwnerSet(address(0), owner);
-        tradeFee = _tradefee/100;
         defaultLockout = _defaultLockout; 
         minMarkup = 1;
         maxMarkup = 500;
@@ -61,11 +64,17 @@ contract Liquorice {
     //Called by user. While orderplace is working, orddercancel should not initiate and vice versa
     function orderplace(uint _volume, bool _side, bool _TakerMaker, int _markup) external {
         require(_markup <= maxMarkup, "Invalid markup");
-        id++; //we record each id in system sequantially
         if (_TakerMaker == true) {
+            if (_markup > 0) {
+                _side = true;
+            } else {
+                _side = false;
+            }
             orders[_markup][id] = order(msg.sender, _volume, _side, _TakerMaker, _markup);
+            id++; //we record each id in system sequantially
         } else {
             matching(id, msg.sender, _TakerMaker, _markup,  _side, _volume);
+            id++; //we record each id in system sequantially
         }
     }
 
@@ -73,18 +82,17 @@ contract Liquorice {
     function precheck(uint _id, address _sender, bool _takerMaker, int _markup, bool _side, uint _volume) internal returns(uint checksum) {
         uint sum = 0; //variable used to check if taker found enough maker volume
         uint lastMatchedID; //needed to find last matched id so that its volume can be reduced instead of being carried to auctions fully
-        uint[] memory matchedIds;
         uint _price = 1500;
         auction memory tempStruct = auction(_id, _sender, _volume, _side, _takerMaker, _markup, _price, defaultLockout);
         tempAuction.push(tempStruct);
-        if (_side = true) {
+        if (_side = false) {
             for (int i = 1; i <= _markup; i++) {
-                for (uint k = 0; k <= _id; k++) {
+                for (uint k = 0; k <= _id+1; k++) {
                     if (sum <= _volume) {
                         sum += orders[i][k].volume;
-                        matchedIds[k] = k;
-                        auction memory tempStruct = auction(k, orders[i][k].sender, orders[i][k].volume, orders[i][k].side, orders[i][k].TakerMaker, orders[i][k].markup, _price, defaultLockout);
-                        tempAuction.push(tempStruct);
+                        auction memory tempStruct1 = auction(k, orders[i][k].sender, orders[i][k].volume, orders[i][k].side, orders[i][k].TakerMaker, orders[i][k].markup, _price, defaultLockout);
+                        tempAuction.push(tempStruct1);
+                    } else {
                         break;
                     }
                 }
@@ -95,14 +103,13 @@ contract Liquorice {
                 for (uint k = 0; k <= _id; k++) {
                     if (sum <= _volume) {
                         sum += orders[i][k].volume;
-                        matchedIds[k] = k;
-                        auction memory tempStruct = auction(k, orders[i][k].sender, orders[i][k].volume, orders[i][k].side, orders[i][k].TakerMaker, orders[i][k].markup, _price, defaultLockout);
-                        tempAuction.push(tempStruct);                        
+                        auction memory tempStruct2 = auction(k, orders[i][k].sender, orders[i][k].volume, orders[i][k].side, orders[i][k].TakerMaker, orders[i][k].markup, _price, defaultLockout);
+                        tempAuction.push(tempStruct2);                        
+                    } else {
                         break;
                     }
                 }   
             }
-        lastMatchedID = matchedIds[matchedIds.length];
         return (sum);
         }
     }
@@ -110,11 +117,11 @@ contract Liquorice {
     //Matching function. Transfers orders from 
     function matching(uint _id, address _sender, bool _takerMaker, int _markup, bool _side, uint _volume) internal {
         uint _volumecheck;
-        (_volumecheck) = precheck(_id, _sender, _takerMaker, _markup, _side, _volume);
+        _volumecheck = precheck(_id, _sender, _takerMaker, _markup, _side, _volume);
         require(_volume <= _volumecheck, "Not enough matching volume");   
         auctionID++;
         auctions[auctionID] = tempAuction;
-        
+
         for (uint i = 0; i <= tempAuction.length; i++) {
             _id = tempAuction[i].id;
             _markup = tempAuction[i].markup;
@@ -175,6 +182,14 @@ contract Liquorice {
                 }
             }
         }
+    }
+
+    function viewOrder(int _key, uint256 _id) public view returns (order memory) {
+        return orders[_key][_id];
+    }
+
+    function viewAuction(uint256 _key) public view returns (auction[] memory) {
+        return auctions[_key];
     }
 }
 
