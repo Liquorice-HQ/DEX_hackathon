@@ -12,7 +12,7 @@ Core audience:
 
 -Liquidity providers who want to supply liquidity to market makers and earn a fee in return
 
-For "scaling ethereum 2023" hackaton we are developing a demo MVP version of the product which can only do the following:
+For "scaling ethereum 2023" hackaton we are developing a demo version of the product which can only do the following:
 
 -Only one tradable pair ETH/DAI
 
@@ -22,7 +22,7 @@ For "scaling ethereum 2023" hackaton we are developing a demo MVP version of the
 
 The overall implementation can be described as follows:
 
-![image](https://user-images.githubusercontent.com/105652074/226582093-3d5f256c-7c14-472b-9ca2-6e94acd7eb01.png)
+![image](https://user-images.githubusercontent.com/105652074/226584547-77ee8ed6-ee5c-4688-b551-803793de5136.png)
 
 We use oracle implementation. Such implementation allows to save a lot on gas as makers do not need to constantly rearrange limit orders, instead they give their "commitment" to execute trades with predefined markup and just wait for a taker order without continuasely paying gas for orders replacement. Oracle price mitigation risk is mitigated by auction system so that makers can always cancel order if price is not good for them. Takers remain vulnarable for now but in future iterations they will have an opportunity to set predefined "maximum affordable executable price" to avoid oracle risk. 
 
