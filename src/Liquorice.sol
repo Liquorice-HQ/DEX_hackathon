@@ -14,7 +14,7 @@ interface DaiToken {
 
 contract liquorice {
 
-
+    int weiconv;
     address private owner;
 
     uint tradeFee; // fee that taker pays to maker
@@ -27,7 +27,7 @@ contract liquorice {
 
     struct order {
         address sender; // address that placed an order
-        uint volume; // order volume in ETH
+        int volume; // order volume in MATIC
         bool TakerMaker; // 0 is taker, 1 is maker
         int markup; // positive means maker order, negative means taker order. Range 0 to 100 
     }
@@ -35,11 +35,11 @@ contract liquorice {
     struct auction {
         uint id; //ID of the order
         address sender; // address that placed an order
-        uint volume; // order volume in ETH
+        int volume; // order volume in MATIC
         bool TakerMaker; // 0 is taker, 1 is maker        
-        int markup; // positive means maker order, negative means taker order. Range 0 to 100 
-        uint price; // oracle prices derived at the moment orders were matched
-        uint lockout; // timeperiod when cancelation is possible
+        int markup; // markup of maker order
+        int price; // oracle price derived at the moment orders were matched + maker markup
+        uint lockout; // timeperiod when cancelation by maker is possible
     }
 
     AggregatorV3Interface internal priceFeed;
@@ -47,7 +47,7 @@ contract liquorice {
     mapping(int => mapping(uint => order)) public orders; //orders are mapped to associated "markup" value and order id. Example, if two makers place orders with markup 20bp, all orders are mapped to key value 20
     mapping(uint => auction[]) public auctions; //selection of orders in auction is mapped to associated auction ID
 
-    mapping(address => uint256) public ethBalances;
+    mapping(address => uint256) public maticBalances;
     mapping(address => uint256) public usdcBalances;
 
     IERC20 public dai;
@@ -68,7 +68,8 @@ contract liquorice {
         maxMarkup = 500;
         id=0;
         auctionID=0;
-        priceFeed = AggregatorV3Interface(0x694AA1769357215DE4FAC081bf1f309aDC325306);
+        priceFeed = AggregatorV3Interface(0xd0D5e3DB44DE05E9F294BB0a3bEEaF030DE24Ada);
+        weiconv = 1000000000000000000;
     }
 
     function getLatestPrice() public view returns (int) {
@@ -84,11 +85,11 @@ contract liquorice {
     }
 
     //Called by user. While orderplace is working, orddercancel should not initiate and vice versa
-    function orderplace(uint _volume,  bool _TakerMaker, int _markup) public payable {
+    function orderplace(int _volume,  bool _TakerMaker, int _markup) public payable {
         require(_markup <= maxMarkup, "Invalid markup");
         if (_TakerMaker == true) {
-            require(msg.value >= _volume*1e18, "not enough eth to place maker order"); 
-            ethBalances[msg.sender] += msg.value*1e18;
+            //require(msg.value >= uint(_volume*weiconv), "not enough eth to place maker order"); 
+            //ethBalances[msg.sender] += msg.value*uint(weiconv);
             id++; //we record each id in system sequantially
             orders[_markup][id] = order(msg.sender, _volume, _TakerMaker, _markup); 
 
@@ -96,11 +97,11 @@ contract liquorice {
             emit AuctionBookChanged(block.timestamp);
         } else {
             id++; //we record each id in system sequantially
-            uint _volumecheck;
+            int _volumecheck;
             uint _makerID;
             int _makerMarkup;
-            uint _price = 1500;
             (_volumecheck, _makerID, _makerMarkup) = precheck(_markup, _volume);
+            int _price = getLatestPrice() * (1+_makerMarkup/10000);
             require(_volume <= _volumecheck, "Not enough matching volume");   
             auctionID++;
             auctions[auctionID].push(auction(id, msg.sender, _volume, false, _makerMarkup, _price, defaultLockout));
@@ -115,8 +116,8 @@ contract liquorice {
     }
 
     //Does initial calculations to define what happens to taker order
-    function precheck(int _maxMarkup, uint _volume) public view returns(uint checksum, uint makerID ,int _makerMarkup) {
-        uint sum = 0; //variable used to check if taker found enough maker volume
+    function precheck(int _maxMarkup, int _volume) public view returns(int checksum, uint makerID ,int _makerMarkup) {
+        int sum = 0; //variable used to check if taker found enough maker volume
         uint _makerID;
         for (int i = 1; i <= _maxMarkup; i++) {
             if (sum >= _volume) {
@@ -138,8 +139,8 @@ contract liquorice {
     //Called by maker to remove trader from order book. _key means "markup" value to easily find trade 
     function ordercancel(int _key, uint _id) external {
         require(address(msg.sender) == address(orders[_key][_id].sender), "you can not cancel this order");
-        payable(msg.sender).transfer(orders[_key][_id].volume*1e18);
-        ethBalances[msg.sender] -= orders[_key][_id].volume*1e18;
+        //payable(msg.sender).transfer(uint(orders[_key][_id].volume*weiconv));
+        //ethBalances[msg.sender] -= uint(orders[_key][_id].volume*weiconv);
         delete orders[_key][_id];
 
         emit OrderBookChanged(block.timestamp);
@@ -149,8 +150,8 @@ contract liquorice {
     function auctioncancel(uint _auctionID) external {
         require(address(msg.sender) == address(auctions[_auctionID][1].sender), "you can not cancel this order");
         require(auctions[_auctionID][0].lockout > block.timestamp, "Lockout period passed");
-        ethBalances[msg.sender] -= auctions[_auctionID][0].volume*1e18;
-        payable(msg.sender).transfer(auctions[_auctionID][0].volume*1e18);
+        //ethBalances[msg.sender] -= uint(auctions[_auctionID][0].volume*weiconv);
+        //payable(msg.sender).transfer(uint(auctions[_auctionID][0].volume*weiconv));
         delete auctions[_auctionID];
 
         emit AuctionBookChanged(block.timestamp);
@@ -160,10 +161,9 @@ contract liquorice {
     function claim(uint _auctionID) external payable {
         require(auctions[_auctionID][0].lockout < block.timestamp, "Auction is still ongoing");
         require(auctions[_auctionID][0].sender == msg.sender, "You can not cancel this auction");
-        dai.transferFrom(msg.sender, address(auctions[_auctionID][1].sender), auctions[_auctionID][1].volume*auctions[_auctionID][1].price);
-        payable(msg.sender).transfer(auctions[_auctionID][0].volume*1e18);
-        ethBalances[auctions[_auctionID][1].sender] -= auctions[_auctionID][0].volume*1e18;
-
+        dai.transferFrom(msg.sender, address(auctions[_auctionID][1].sender), uint(auctions[_auctionID][1].volume*auctions[_auctionID][1].price));
+        payable(msg.sender).transfer(uint(auctions[_auctionID][0].volume*weiconv));
+        maticBalances[auctions[_auctionID][1].sender] -= uint(auctions[_auctionID][0].volume*weiconv);
         emit AuctionBookChanged(block.timestamp);
     }
 
