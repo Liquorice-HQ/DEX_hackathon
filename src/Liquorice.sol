@@ -4,6 +4,7 @@ pragma solidity ^0.8.0;
 
 import "hardhat/console.sol";
 import "https://github.com/OpenZeppelin/openzeppelin-contracts/blob/release-v4.5/contracts/token/ERC20/IERC20.sol";
+import "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
 
 interface DaiToken {
     function transfer(address dst, uint wad) external returns (bool);
@@ -41,6 +42,8 @@ contract liquorice {
         uint lockout; // timeperiod when cancelation is possible
     }
 
+    AggregatorV3Interface internal priceFeed;
+
     mapping(int => mapping(uint => order)) public orders; //orders are mapped to associated "markup" value and order id. Example, if two makers place orders with markup 20bp, all orders are mapped to key value 20
     mapping(uint => auction[]) public auctions; //selection of orders in auction is mapped to associated auction ID
 
@@ -65,6 +68,19 @@ contract liquorice {
         maxMarkup = 500;
         id=0;
         auctionID=0;
+        priceFeed = AggregatorV3Interface(0x694AA1769357215DE4FAC081bf1f309aDC325306);
+    }
+
+    function getLatestPrice() public view returns (int) {
+        // prettier-ignore
+        (
+            /* uint80 roundID */,
+            int price,
+            /*uint startedAt*/,
+            /*uint timeStamp*/,
+            /*uint80 answeredInRound*/
+        ) = priceFeed.latestRoundData();
+        return price;
     }
 
     //Called by user. While orderplace is working, orddercancel should not initiate and vice versa
