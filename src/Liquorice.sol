@@ -71,7 +71,8 @@ contract liquorice {
         priceFeed = AggregatorV3Interface(0xd0D5e3DB44DE05E9F294BB0a3bEEaF030DE24Ada);
         weiconv = 1000000000000000000;
     }
-
+    
+    //fetches Matic/USD price
     function getLatestPrice() public view returns (int) {
         // prettier-ignore
         (
@@ -84,7 +85,7 @@ contract liquorice {
         return price;
     }
 
-    //Called by user. While orderplace is working, orddercancel should not initiate and vice versa
+    //Main function to place orders
     function orderplace(int _volume,  bool _TakerMaker, int _markup) public payable {
         require(_markup <= maxMarkup, "Invalid markup");
         if (_TakerMaker == true) {
@@ -115,7 +116,7 @@ contract liquorice {
         }
     }
 
-    //Does initial calculations to define what happens to taker order
+    //Does initial calculations to check whether there is enough matching volume to fill taker order
     function precheck(int _maxMarkup, int _volume) public view returns(int checksum, uint makerID ,int _makerMarkup) {
         int sum = 0; //variable used to check if taker found enough maker volume
         uint _makerID;
@@ -136,7 +137,7 @@ contract liquorice {
         return (sum, _makerID, _makerMarkup);
     }
 
-    //Called by maker to remove trader from order book. _key means "markup" value to easily find trade 
+    //Called by maker to remove order from order book. _key means "markup" value to easily find trade 
     function ordercancel(int _key, uint _id) external {
         require(address(msg.sender) == address(orders[_key][_id].sender), "you can not cancel this order");
         //payable(msg.sender).transfer(uint(orders[_key][_id].volume*weiconv));
