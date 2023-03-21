@@ -6,7 +6,7 @@ The key goal of the project is to provide an onchain MEV-aware trading space wit
 
 Core audience:
 
--Traders in DEFI who want to be able to swap coins onchain with the usage of cryptocurrency wallets such as metamask. Small users benefit from tight spread due to efficient liquidity stimulation which gives makers a good reason to price big volumes very close to the market price. A special interest may come from liquidators or other participants who want to execute big volume automatically and instantly without waiting for a good OTC trade as liquorice provides stuimulus for makers to price big clips constantly in the market similar to traditional FX brokerages or order book exchanges. Which gives an edge over AMM or RFQ based protocols 
+-Traders in DEFI who want to be able to swap crypto onchain with the usage of cryptocurrency wallets such as metamask. Small users benefit from tight spread due to efficient liquidity stimulation which gives makers a good reason to price big volumes very close to the market price. A special interest may come from liquidators or other participants who want to execute big volume automatically and instantly without waiting for a good OTC trade as liquorice provides stuimulus for makers to price big clips constantly in the market similar to traditional FX brokerages or order book exchanges. Which gives an edge over AMM or RFQ based protocols 
 
 -Makert makers. Especially those who have high vip tiers on centralized exchnages such as binance. Protocol is largely designed to give an easy way for CEXs market makers to price DEFI users
 
@@ -16,9 +16,15 @@ For "scaling ethereum 2023" hackaton we are developing a demo MVP version of the
 
 -Only one tradable pair ETH/DAI
 
--Makers can set "commitments" to sell ETH against USDC but they can not buy. So users or ptotocl can only buy ETH from mkaers against USDC but not Sell
+-Makers can set "commitments" to sell ETH against DAI but they can not buy. So users or ptotocl can only buy ETH from mkaers against DAI but not Sell
 
--Orders are matched only with the best maker. In prod of course system should check the whole order book
+-Orders are matched only with the best maker. In later iterations system is supposssed to give all makers an opportunity to fill an order in case the initial received of an order decides to cancel an auction
+
+The overall implementation can be described as follows:
+
+![image](https://user-images.githubusercontent.com/105652074/226582093-3d5f256c-7c14-472b-9ca2-6e94acd7eb01.png)
+
+We use oracle implementation. Such implementation allows to save a lot on gas as makers do not need to constantly rearrange limit orders, instead they give their "commitment" to execute trades with predefined markup and just wait for a taker order without continuasely paying gas for orders replacement. Oracle price mitigation risk is mitigated by auction system so that makers can always cancel order if price is not good for them. Takers remain vulnarable for now but in future iterations they will have an opportunity to set predefined "maximum affordable executable price" to avoid oracle risk. 
 
 ## There are three key ideas in the project: 
 
