@@ -18,7 +18,7 @@ For "scaling ethereum 2023" hackaton we are developing a demo version of the pro
 
 -Makers can set "commitments" to sell ETH against DAI but they can not buy. So users or ptotocl can only buy ETH from mkaers against DAI but not Sell
 
--Orders are matched only with the best maker. In later iterations system is supposssed to give all makers an opportunity to fill an order in case the initial received of an order decides to cancel an auction
+-Orders are matched only with the best maker. In later iterations system is suppossed to give all makers an opportunity to fill an order in case the initial receiver of an order decides to cancel an auction
 
 The overall implementation can be described as follows:
 
