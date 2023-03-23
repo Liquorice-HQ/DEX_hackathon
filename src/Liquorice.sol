@@ -3,7 +3,7 @@
 pragma solidity ^0.8.0;
 
 import "hardhat/console.sol";
-import "https://github.com/OpenZeppelin/openzeppelin-contracts/blob/release-v4.5/contracts/token/ERC20/IERC20.sol";
+//import "https://github.com/OpenZeppelin/openzeppelin-contracts/blob/release-v4.5/contracts/token/ERC20/IERC20.sol";
 import "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
 
 interface DaiToken {
@@ -42,6 +42,29 @@ contract liquorice {
         uint lockout; // timeperiod when cancelation by maker is possible
     }
 
+    //Used purely to help front operate data 
+    struct orderbookView {
+        int markup; // positive means maker order, negative means taker order. Range 0 to 100 
+        int volume; // sum of volume on a particular level 
+    }
+
+    //Used to display auctions in front
+    struct auctionView {
+        uint auctionid;
+        address sender; // address that placed an order
+        int volume; // order volume in MATIC      
+        int markup; // markup of maker order
+        int price; // oracle price derived at the moment orders were matched + maker markup
+    }
+
+    struct ordersView {
+        uint id; //ID of the order
+        address sender; // address that placed an order
+        int volume; // order volume in MATIC
+        int markup; // positive means maker order, negative means taker order. Range 0 to 100 
+    }
+
+
     AggregatorV3Interface internal priceFeed;
 
     mapping(int => mapping(uint => order)) public orders; //orders are mapped to associated "markup" value and order id. Example, if two makers place orders with markup 20bp, all orders are mapped to key value 20
@@ -50,7 +73,7 @@ contract liquorice {
     mapping(address => uint256) public maticBalances;
     mapping(address => uint256) public usdcBalances;
 
-    IERC20 public dai;
+    //IERC20 public dai;
 
     // events for EVM logging
     event OwnerSet(address indexed oldOwner, address indexed newOwner);
@@ -61,11 +84,11 @@ contract liquorice {
     constructor() {
         console.log("Owner contract deployed by:", msg.sender);
         owner = msg.sender; 
-        dai = IERC20(0x4F96Fe3b7A6Cf9725f59d353F723c1bDb64CA6Aa);
+        //dai = IERC20(0x4F96Fe3b7A6Cf9725f59d353F723c1bDb64CA6Aa);
         emit OwnerSet(address(0), owner);
         defaultLockout = 2; 
-        minMarkup = 1;
-        maxMarkup = 500;
+        minMarkup = -20;
+        maxMarkup = 20;
         id=0;
         auctionID=0;
         priceFeed = AggregatorV3Interface(0xd0D5e3DB44DE05E9F294BB0a3bEEaF030DE24Ada);
@@ -161,17 +184,76 @@ contract liquorice {
     //Ideally this function needs to be activated automatically. But in first iteration we can use make it as a manual activation by auction participants
     function claim(uint _auctionID) external payable {
         require(auctions[_auctionID][0].lockout < block.timestamp, "Auction is still ongoing");
-        require(auctions[_auctionID][0].sender == msg.sender, "You can not cancel this auction");
-        dai.transferFrom(msg.sender, address(auctions[_auctionID][1].sender), uint(auctions[_auctionID][1].volume*auctions[_auctionID][1].price));
+        require(auctions[_auctionID][0].sender == msg.sender, "You can not claim this auction");
+        //dai.transferFrom(msg.sender, address(auctions[_auctionID][1].sender), uint(auctions[_auctionID][1].volume*auctions[_auctionID][1].price));
         payable(msg.sender).transfer(uint(auctions[_auctionID][0].volume*weiconv));
         maticBalances[auctions[_auctionID][1].sender] -= uint(auctions[_auctionID][0].volume*weiconv);
         emit AuctionBookChanged(block.timestamp);
     }
 
+    function volumeSum(int _key) public view returns (int levelSum) {
+        int _levelSum;
+        for (uint i = 1; i <= id; i++) {
+            _levelSum += orders[_key][i].volume;
+        }
+        return(_levelSum);
+    }
+
+    //Used to display order book in front
+    function priceLadder() public view returns (orderbookView[] memory) {
+        orderbookView[] memory temp = new orderbookView[](20);
+        uint k;
+        for (int i = -10; i <= 10; i++) {
+            if (i != 0) {
+                temp[k].markup = i;
+                temp[k].volume = volumeSum(i);
+                k++;
+            }
+        }
+        return (temp);
+    }
+
+    //Used to display auction data on frontend. Returns top 5 pending auctions for a specific maker
+    function displayAuctions(address _sender) public view returns (auctionView[] memory) {
+        auctionView[] memory temp = new auctionView[](5);
+        uint k;
+        for (uint i = 1; i <= auctionID; i++) {
+            if (auctions[i][1].sender == _sender) {
+                temp[k].auctionid = i;
+                temp[k].sender = auctions[i][1].sender;
+                temp[k].volume = auctions[i][1].volume;
+                temp[k].markup = auctions[i][1].markup;
+                temp[k].price = auctions[i][1].price;
+                k++;
+            }
+        }
+        return (temp);
+    }
+
+    //Used to display order data on frontend. Returns top 5 pending auctions for a specific maker
+    function displayOrders(address _sender) public view returns (ordersView[] memory) {
+        ordersView[] memory temp = new ordersView[](5);
+        uint k;
+        for (int i = -20; i <= 20; i++) {
+            for (uint d = 0; d <= id; d++) {
+                if (orders[i][d].sender == _sender) {
+                    temp[k].id = d;
+                    temp[k].sender = _sender;
+                    temp[k].volume = orders[i][d].volume;
+                    temp[k].markup = orders[i][d].markup;
+                    k++;
+                }
+            }
+        }
+        return (temp);
+    }
+
+    //used for testing
     function viewOrder(int _key, uint256 _id) public view returns (order memory) {
         return orders[_key][_id];
     }
 
+    //used for testing
     function viewAuction(uint256 _key) public view returns (auction[] memory) {
         return auctions[_key];
     }
