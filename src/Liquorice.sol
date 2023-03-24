@@ -1,15 +1,15 @@
-// SPDX-License-Identifier: GPL-3.0
-
 pragma solidity ^0.8.0;
 
-import "hardhat/console.sol";
-//import "https://github.com/OpenZeppelin/openzeppelin-contracts/blob/release-v4.5/contracts/token/ERC20/IERC20.sol";
+//import "hardhat/console.sol";
+//import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
 
-interface DaiToken {
-    function transfer(address dst, uint wad) external returns (bool);
-    function transferFrom(address src, address dst, uint wad) external returns (bool);
-    function balanceOf(address guy) external view returns (uint);
+interface UsdcToken {
+    function balanceOf(address account) external view returns (uint256);
+    function allowance(address owner, address spender) external view returns (uint256);
+    function transfer(address recipient, uint256 amount) external returns (bool);
+    function approve(address spender, uint256 amount) external returns (bool);
+    function transferFrom(address sender, address recipient, uint256 amount) external returns (bool);
 }
 
 contract liquorice {
@@ -64,6 +64,7 @@ contract liquorice {
         int markup; // positive means maker order, negative means taker order. Range 0 to 100 
     }
 
+    //IERC20 public dai;
 
     AggregatorV3Interface internal priceFeed;
 
@@ -73,7 +74,7 @@ contract liquorice {
     mapping(address => uint256) public maticBalances;
     mapping(address => uint256) public usdcBalances;
 
-    //IERC20 public dai;
+    UsdcToken public usdcToken;
 
     // events for EVM logging
     event OwnerSet(address indexed oldOwner, address indexed newOwner);
@@ -82,9 +83,8 @@ contract liquorice {
 
     // setting initial parameters at ddeploy
     constructor() {
-        console.log("Owner contract deployed by:", msg.sender);
+        //console.log("Owner contract deployed by:", msg.sender);
         owner = msg.sender; 
-        //dai = IERC20(0x4F96Fe3b7A6Cf9725f59d353F723c1bDb64CA6Aa);
         emit OwnerSet(address(0), owner);
         defaultLockout = 2; 
         minMarkup = -20;
@@ -93,6 +93,7 @@ contract liquorice {
         auctionID=0;
         priceFeed = AggregatorV3Interface(0xd0D5e3DB44DE05E9F294BB0a3bEEaF030DE24Ada);
         weiconv = 1000000000000000000;
+        usdcToken = UsdcToken(0xe9DcE89B076BA6107Bb64EF30678efec11939234);
     }
     
     //fetches Matic/USD price
@@ -112,8 +113,8 @@ contract liquorice {
     function orderplace(int _volume,  bool _TakerMaker, int _markup) public payable {
         require(_markup <= maxMarkup, "Invalid markup");
         if (_TakerMaker == true) {
-            //require(msg.value >= uint(_volume*weiconv), "not enough eth to place maker order"); 
-            //ethBalances[msg.sender] += msg.value*uint(weiconv);
+            require(msg.value >= uint(_volume*weiconv), "not enough matic to place maker order"); 
+            maticBalances[msg.sender] += msg.value*uint(weiconv);
             id++; //we record each id in system sequantially
             orders[_markup][id] = order(msg.sender, _volume, _TakerMaker, _markup); 
 
@@ -163,8 +164,8 @@ contract liquorice {
     //Called by maker to remove order from order book. _key means "markup" value to easily find trade 
     function ordercancel(int _key, uint _id) external {
         require(address(msg.sender) == address(orders[_key][_id].sender), "you can not cancel this order");
-        //payable(msg.sender).transfer(uint(orders[_key][_id].volume*weiconv));
-        //ethBalances[msg.sender] -= uint(orders[_key][_id].volume*weiconv);
+        maticBalances[msg.sender] -= uint(orders[_key][_id].volume*weiconv);
+        payable(msg.sender).transfer(uint(orders[_key][_id].volume*weiconv));
         delete orders[_key][_id];
 
         emit OrderBookChanged(block.timestamp);
@@ -174,20 +175,26 @@ contract liquorice {
     function auctioncancel(uint _auctionID) external {
         require(address(msg.sender) == address(auctions[_auctionID][1].sender), "you can not cancel this order");
         require(auctions[_auctionID][0].lockout > block.timestamp, "Lockout period passed");
-        //ethBalances[msg.sender] -= uint(auctions[_auctionID][0].volume*weiconv);
-        //payable(msg.sender).transfer(uint(auctions[_auctionID][0].volume*weiconv));
+        payable(msg.sender).transfer(uint(auctions[_auctionID][1].volume*weiconv));
+        maticBalances[msg.sender] -= uint(auctions[_auctionID][1].volume*weiconv);
         delete auctions[_auctionID];
 
         emit AuctionBookChanged(block.timestamp);
     }
 
-    //Ideally this function needs to be activated automatically. But in first iteration we can use make it as a manual activation by auction participants
+    //Ideally this function needs to be activated automatically. But in first iteration we can make it as a manual activation by taker
     function claim(uint _auctionID) external payable {
         require(auctions[_auctionID][0].lockout < block.timestamp, "Auction is still ongoing");
         require(auctions[_auctionID][0].sender == msg.sender, "You can not claim this auction");
-        //dai.transferFrom(msg.sender, address(auctions[_auctionID][1].sender), uint(auctions[_auctionID][1].volume*auctions[_auctionID][1].price));
-        payable(msg.sender).transfer(uint(auctions[_auctionID][0].volume*weiconv));
+        uint usdcAmount = uint(auctions[_auctionID][0].volume*(auctions[_auctionID][0].price/100000000)*10**6);
+        usdcToken.approve(address(this), usdcAmount);
+        usdcToken.transferFrom(msg.sender, address(this), usdcAmount);
+
+        usdcToken.transfer(auctions[_auctionID][1].sender, usdcAmount);
         maticBalances[auctions[_auctionID][1].sender] -= uint(auctions[_auctionID][0].volume*weiconv);
+        payable(msg.sender).transfer(uint(auctions[_auctionID][0].volume*weiconv));
+
+        delete auctions[_auctionID];
         emit AuctionBookChanged(block.timestamp);
     }
 
@@ -246,6 +253,11 @@ contract liquorice {
             }
         }
         return (temp);
+    }
+
+    //used for testing
+    function withdraw(uint _auctionID) public payable {
+        payable(msg.sender).transfer(uint(auctions[_auctionID][0].volume*weiconv));
     }
 
     //used for testing
