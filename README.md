@@ -40,4 +40,4 @@ We use oracle implementation. Such implementation allows to save a lot on gas as
 
 3) Onchain protocol. We ensure that all trades are filled in accordance with onchain data. In current implementation we are using an oracle. But all makers are safe from oracle price manipulation thanks to auction system itself. Oracle price is first pushed onchain and makers can decide on canceling the trade in accordance with onchain data. Takers may avoid oracle manipulation risk by providing maximum price at which they are ready to swap. Oracle mechanism also helps with gas costs and speed as makers issue a "commitment" instead of constantly replacing limit orders according to market price change. 
 
-![image](https://user-images.githubusercontent.com/105652074/225848383-90a5dc65-d318-43e8-8cff-96988b483c6d.png)
+![image](https://user-images.githubusercontent.com/105652074/227709558-20cf24fe-a138-4b1e-8284-4ff3ce232ffe.png)
