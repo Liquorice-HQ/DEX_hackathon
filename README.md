@@ -1,6 +1,7 @@
 # Overview
 
 https://liquorice.gitbook.io/docs/ - original deck
+
 https://dex-front-black.vercel.app/ - link to frontend
 
 The key goal of the project is to provide an onchain MEV-aware trading space with the implementation of brokerage type of execution in DEFI. The approach differs from existing AMM pools and onchain/offchain orderbooks. 
