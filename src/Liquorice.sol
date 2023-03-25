@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0
+
 pragma solidity ^0.8.0;
 
 //import "hardhat/console.sol";
@@ -14,7 +16,7 @@ interface UsdcToken {
 
 contract liquorice {
 
-    int weiconv;
+    int weiconv; //just for wei to ether conversion
     address private owner;
 
     uint tradeFee; // fee that taker pays to maker
@@ -29,7 +31,7 @@ contract liquorice {
         address sender; // address that placed an order
         int volume; // order volume in MATIC
         bool TakerMaker; // 0 is taker, 1 is maker
-        int markup; // positive means maker order, negative means taker order. Range 0 to 100 
+        int markup; // for maker orders it defines maker markup (profit). For taker it is "max slippage" setting
     }
 
     struct auction {
@@ -44,7 +46,7 @@ contract liquorice {
 
     //Used purely to help front operate data 
     struct orderbookView {
-        int markup; // positive means maker order, negative means taker order. Range 0 to 100 
+        int markup; // markup of maker order 
         int volume; // sum of volume on a particular level 
     }
 
@@ -57,22 +59,21 @@ contract liquorice {
         int price; // oracle price derived at the moment orders were matched + maker markup
     }
 
+    //Used to display orders in front
     struct ordersView {
         uint id; //ID of the order
         address sender; // address that placed an order
         int volume; // order volume in MATIC
-        int markup; // positive means maker order, negative means taker order. Range 0 to 100 
+        int markup; // markup of maker order
     }
-
-    //IERC20 public dai;
 
     AggregatorV3Interface internal priceFeed;
 
     mapping(int => mapping(uint => order)) public orders; //orders are mapped to associated "markup" value and order id. Example, if two makers place orders with markup 20bp, all orders are mapped to key value 20
     mapping(uint => auction[]) public auctions; //selection of orders in auction is mapped to associated auction ID
 
-    mapping(address => uint256) public maticBalances;
-    mapping(address => uint256) public usdcBalances;
+    mapping(address => uint256) public maticBalances; //storage of deposited MATIC
+    mapping(address => uint256) public usdcBalances; //storage of deposited USDC
 
     UsdcToken public usdcToken;
 
@@ -81,7 +82,7 @@ contract liquorice {
     event OrderBookChanged(uint when);
     event AuctionBookChanged(uint when);
 
-    // setting initial parameters at ddeploy
+    // setting initial parameters at deploy
     constructor() {
         //console.log("Owner contract deployed by:", msg.sender);
         owner = msg.sender; 
@@ -232,6 +233,15 @@ contract liquorice {
                 temp[k].markup = auctions[i][1].markup;
                 temp[k].price = auctions[i][1].price;
                 k++;
+            } else {
+                if (auctions[i][0].sender == _sender) {
+                    temp[k].auctionid = i;
+                    temp[k].sender = auctions[i][0].sender;
+                    temp[k].volume = auctions[i][0].volume;
+                    temp[k].markup = auctions[i][0].markup;
+                    temp[k].price = auctions[i][0].price;
+                    k++;
+                }
             }
         }
         return (temp);
@@ -270,5 +280,4 @@ contract liquorice {
         return auctions[_key];
     }
 }
-
 
